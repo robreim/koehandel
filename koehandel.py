@@ -8,7 +8,6 @@ Created on Thu Feb 18 17:44:15 2021
 
 from collections import deque
 import random
-import time
 import pandas as pd
 # to do:
     #v portemonnee wordt minder bij elke aankoop 
@@ -89,12 +88,14 @@ class Player:
          self.strategy = strategy
          self.total_score = []
          
-    def bid(self):
+    def bid(self,card_drawn,current_bid,money_supply):
         # create vector of bools
-        self.offer = min(self.budget,current_bid + self.strategy.loc[auction_card.animal,
-                                                                     self.budget,self.hand.get(auction_card.animal),ezelteller
-                                                                     ,current_bid].item())
-        print("{} biedt {} munten voor de/het {}".format(self.name,self.offer,auction_card.animal))
+        condition = situations[(situations.Animals == card_drawn) & (situations.CurrentBid == current_bid) &
+                     (situations.MoneySupply == money_supply) & (situations.BankAccount == self.budget) & 
+                     (situations.CardsInHand == self.hand.get(card_drawn)) ]
+        self.offer = min(self.budget,current_bid + self.strategy[condition.index.item()])
+
+        print("{} biedt {} munten voor de/het {}".format(self.name,self.offer,card_drawn))
         return self.offer
     
     def calculateScore(self):
@@ -144,23 +145,19 @@ for column in [cards_in_hand,no_donkeys_drawn,current_bid]:
 
 del animals_deck, bank_account, cards_in_hand, no_donkeys_drawn, current_bid, column
 
-situations = situations.set_index(['Animals', 'BankAccount','CardsInHand','MoneySupply','CurrentBid'])
 
 # genereer strategieen/actielijst voor evolutionair algorithme
 list_of_strategies = []
 for algorithm in range(0,200):
-    situations['Action']= random.choices([0,10],k=len(situations))
-    list_of_strategies.append(situations)
+    strategy = random.choices([0,50],k=len(situations))
+    list_of_strategies.append(strategy)
 
-del algorithm
+del strategy, algorithm
 
 ####################### Spel opzetten ##################################
 list_best_strategies = []
 
-teller = 0
-total_time = 0
-
-for z in range(0,5,4):
+for z in range(0,200,4):
     print("Algorithme {} tot {}".format(z,z+3))      
     ## Spelers opzetten
     mohsine = Player("Mohsine", portemonnee,list_of_strategies[z])
@@ -169,7 +166,7 @@ for z in range(0,5,4):
     annemarie = Player("Annemarie", portemonnee,list_of_strategies[z+3])
     names = [mohsine, charlotte, joost, annemarie]
     # Waardes initialiseren
-    for i in range(1,6):     
+    for i in range(1,11):     
         for player in names:
             player.budget = portemonnee
             player.hand = {"Haan"  :0, 
@@ -223,28 +220,24 @@ for z in range(0,5,4):
             
             # Het eerste bod wordt gedaan door de eerste persoon na de veilingmeester. Het volgende bod moet minimaal 10
             # munten hoger zijn. De veilingmeester mag niet bieden.
+            situation ={'card_drawn':auction_card.animal,'current_bid':current_bid,'money_supply':ezelteller}
             
  
             #Creeer iterable puur voor de biedingsronde (drie spelers!)
             bidder_names = [first_bidder,second_bidder,third_bidder]
             iter_names = ModifiableCycle(bidder_names)
             
-
             ## eerste bod
             next_player = next(iter_names)
-            next_bid = next_player.bid()
+            next_bid = next_player.bid(**situation)
             ## Tijd voor de biedingsronde:
             while len(bidder_names)>1:
                 current_bid = next_bid
                 previous_player = next_player
                 next_player = next(iter_names)
-                #update situatie en bied opnieuw           
-                start = time.time()  
-                next_bid = next_player.bid()
-                end = time.time()
-                teller += 1
-                total_time += end - start
-                
+                #update situatie en bied opnieuw
+                situation ={'card_drawn':auction_card.animal,'current_bid':current_bid,'money_supply':ezelteller}
+                next_bid = next_player.bid(**situation)
                 ## als speler weigert hoger te bieden, verwijder uit de iterable
                 if next_bid <= current_bid:
                     bidder_names.remove(next_player),iter_names.delete_prev() 
@@ -275,4 +268,3 @@ for z in range(0,5,4):
     for person in names:
         print(person.name + " " + f"{sum(person.total_score)/len(person.total_score):,} punten gemiddeld")
  
-print("Gemiddele berekentijd: {}".format(total_time/teller))
