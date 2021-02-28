@@ -91,7 +91,7 @@ class Player:
          
     def bid(self):
         # create vector of bools
-        self.offer = min(self.budget,current_bid + self.strategy.loc[auction_card.animal,
+        self.offer = min(self.budget,current_bid + self.strategy.loc[auction_card.value,
                                                                      self.budget,self.hand.get(auction_card.animal),ezelteller
                                                                      ,current_bid].item())
         print("{} biedt {} munten voor de/het {}".format(self.name,self.offer,auction_card.animal))
@@ -131,7 +131,7 @@ class ModifiableCycle(object):
 
 
 ################### Situaties generen voor het evolutionair algoritme #####################
-animals_deck = pd.DataFrame(list(animals.keys()), columns= ['Animals'])
+animals_deck = pd.DataFrame(list(animals.values()), columns= ['Animals'])
 bank_account = pd.DataFrame(list(range(0,1500,10)), columns=['BankAccount'])
 cards_in_hand = pd.DataFrame(list(range(0,4)),columns=['CardsInHand'])
 no_donkeys_drawn= pd.DataFrame(list(range(0,5,1)), columns=['MoneySupply'])
@@ -153,14 +153,13 @@ for algorithm in range(0,200):
     list_of_strategies.append(situations)
 
 del algorithm
-
 ####################### Spel opzetten ##################################
 list_best_strategies = []
 
 teller = 0
 total_time = 0
 
-for z in range(0,5,4):
+for z in range(0,200,4):
     print("Algorithme {} tot {}".format(z,z+3))      
     ## Spelers opzetten
     mohsine = Player("Mohsine", portemonnee,list_of_strategies[z])
@@ -223,13 +222,11 @@ for z in range(0,5,4):
             
             # Het eerste bod wordt gedaan door de eerste persoon na de veilingmeester. Het volgende bod moet minimaal 10
             # munten hoger zijn. De veilingmeester mag niet bieden.
-            
  
             #Creeer iterable puur voor de biedingsronde (drie spelers!)
             bidder_names = [first_bidder,second_bidder,third_bidder]
             iter_names = ModifiableCycle(bidder_names)
             
-
             ## eerste bod
             next_player = next(iter_names)
             next_bid = next_player.bid()
