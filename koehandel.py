@@ -10,6 +10,7 @@ from collections import deque
 import random
 import time
 import pandas as pd
+import numpy as np
 # to do:
     #v portemonnee wordt minder bij elke aankoop 
     #v bij het trekken van de ezel stijgt de geldhoeveelheid
@@ -57,16 +58,14 @@ class Deck:
         for v in range(1,5):
             for key in animals:
                 self.cards.append(Card(key,animals.get(key)))
-        
+                self.cards 
+            random.shuffle(self.cards)
+            
     def show(self):
         for c in self.cards:
             c.show()
             
-    def shuffle(self):
-        for i in range(len(self.cards)-1,0,-1):
-            r = random.randint(0,i)
-            self.cards[i], self.cards[r] = self.cards[r], self.cards[i]
-            
+
     def drawCard(self):
         return self.cards.pop()
     
@@ -93,7 +92,7 @@ class Player:
         # create vector of bools
         self.offer = min(self.budget,current_bid + self.strategy.loc[auction_card.value,
                                                                      self.budget,self.hand.get(auction_card.animal),ezelteller
-                                                                     ,current_bid].item())
+                                                                     ,current_bid])
         print("{} biedt {} munten voor de/het {}".format(self.name,self.offer,auction_card.animal))
         return self.offer
     
@@ -129,9 +128,8 @@ class ModifiableCycle(object):
         
 
 
-
 ################### Situaties generen voor het evolutionair algoritme #####################
-animals_deck = pd.DataFrame(list(animals.values()), columns= ['Animals'])
+animals_deck = pd.DataFrame(list(animals.values()), columns =['Animals'])
 bank_account = pd.DataFrame(list(range(0,1500,10)), columns=['BankAccount'])
 cards_in_hand = pd.DataFrame(list(range(0,4)),columns=['CardsInHand'])
 no_donkeys_drawn= pd.DataFrame(list(range(0,5,1)), columns=['MoneySupply'])
@@ -144,28 +142,33 @@ for column in [cards_in_hand,no_donkeys_drawn,current_bid]:
 
 del animals_deck, bank_account, cards_in_hand, no_donkeys_drawn, current_bid, column
 
+# creeer een index aan de hand van alle kolommen
 situations = situations.set_index(['Animals', 'BankAccount','CardsInHand','MoneySupply','CurrentBid'])
 
-# genereer strategieen/actielijst voor evolutionair algorithme
-list_of_strategies = []
-for algorithm in range(0,200):
-    situations['Action']= random.choices([0,10],k=len(situations))
-    list_of_strategies.append(situations)
 
-del algorithm
+# creeer een dataframe met 200 kolommen (elke kolom staat voor 1 lijst met acties (algoritme), met
+# met de index van situations als index)
+strategies = pd.DataFrame(data=np.random.choice([0,10],len(situations)*200).reshape(-1, 200), index = situations.index)
+                          
+# nu kan de situations tabel weg
+del situations
 ####################### Spel opzetten ##################################
 list_best_strategies = []
 
 teller = 0
 total_time = 0
+                        
+strategy_zero = strategies[0]
+strategy_zero.loc[10,0,0,0,0]
 
 for z in range(0,200,4):
     print("Algorithme {} tot {}".format(z,z+3))      
     ## Spelers opzetten
-    mohsine = Player("Mohsine", portemonnee,list_of_strategies[z])
-    charlotte = Player("Charlotte", portemonnee,list_of_strategies[z+1])
-    joost = Player("Joost", portemonnee,list_of_strategies[z+2])
-    annemarie = Player("Annemarie", portemonnee,list_of_strategies[z+3])
+    mohsine = Player("Mohsine", portemonnee,strategies[z])
+    charlotte  = Player("Charlotte", portemonnee,strategies[z+1])
+    joost = Player("Joost", portemonnee,strategies[z+2])
+    annemarie = Player("Annemarie", portemonnee,strategies[z+3])
+                                       
     names = [mohsine, charlotte, joost, annemarie]
     # Waardes initialiseren
     for i in range(1,6):     
@@ -182,9 +185,8 @@ for z in range(0,200,4):
                 "Koe"   :0,
                 "Paard" :0
                 }
-        ## Stapel schudden
+        ## Stapel creeren (schud automatisch)
         deck = Deck()
-        deck.shuffle()
         deck.show()
         
         
@@ -213,7 +215,7 @@ for z in range(0,200,4):
             auction_card = deck.drawCard()
         # Check of ezel of niet
             if auction_card.animal == 'Ezel':
-                for person in [mohsine,charlotte,joost,annemarie]:
+                for person in names:
                     person.budget += [50,100,200,500][ezelteller]
                 ezelteller += 1
             auction_card.show()
