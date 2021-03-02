@@ -51,15 +51,9 @@ class Card:
     
 class Deck:
     def __init__(self):
-        self.cards = []
-        self.build()
-        
-    def build(self):
-        for v in range(1,5):
-            for key in animals:
-                self.cards.append(Card(key,animals.get(key)))
-                self.cards 
-            random.shuffle(self.cards)
+        self.cards = [Card(key,animals.get(key)) for v in range(1,5) for key in animals]
+        random.shuffle(self.cards)
+
             
     def show(self):
         for c in self.cards:
@@ -160,6 +154,7 @@ total_time = 0
                         
 strategy_zero = strategies[0]
 strategy_zero.loc[10,0,0,0,0]
+
 
 for z in range(0,200,4):
     print("Algorithme {} tot {}".format(z,z+3))      
