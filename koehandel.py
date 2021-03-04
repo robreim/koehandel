@@ -79,13 +79,13 @@ class Player:
             "Koe"   :0,
             "Paard" :0
             }
-         self.strategy = strategies[:number]
+         self.strategy = strategies[number]
          self.number = number
          
     def bid(self):
         # create vector of bools
-        self.offer = min(self.budget,current_bid + self.strategy.loc[auction_card.value,
-                                                                     self.budget,self.hand.get(auction_card.animal),ezelteller
+        self.offer = min(self.budget,current_bid + self.strategy.
+                         loc[auction_card.value,self.budget,self.hand.get(auction_card.animal),ezelteller
                                                                      ,current_bid])
         print("{} biedt {} munten voor de/het {}".format(self.name,self.offer,auction_card.animal))
         return self.offer
@@ -151,18 +151,22 @@ algorithm_scores = dict.fromkeys(range(0,200),0)
 
 
 starttijd = time.time()
-for i in range(0,5):
+for i in range(0,10):
     print("Tijd voor ronde {}!".format(i))
     teller = 0
     total_time = 0
     for z in range(0,200):
         print("Algorithme {} van 200".format(z))
+        
+        # Zorg voor een willekeurige opponent (niet tegen zichzelf)
         random_opponents = [x for x in range(0, 200) if x != z]
+        random_sample = random.sample(random_opponents,3)
+        
         ## Spelers opzetten
         mohsine = Player("Mohsine", portemonnee,z)
-        charlotte  = Player("Charlotte", portemonnee,random.choice(random_opponents))
-        joost = Player("Joost", portemonnee,random.choice(random_opponents))
-        annemarie = Player("Annemarie", portemonnee,random.choice(random_opponents))
+        charlotte  = Player("Charlotte", portemonnee,random_sample[0])
+        joost = Player("Joost", portemonnee,random_sample[1])
+        annemarie = Player("Annemarie", portemonnee,random_sample[2])
         names = [mohsine, charlotte, joost, annemarie]                           
      
         ## Stapel creeren (schud automatisch)
@@ -170,7 +174,6 @@ for i in range(0,5):
         # de eerste veilingmeester wordt willekeurig gekozen
         random.shuffle(names)
         iter_veilingmeester = ModifiableCycle(names)
-        iter_first_bidder = ModifiableCycle(names)
         ezelteller = 0
         ################### Spel starten, willekeurige beginner ######################################
 
@@ -229,6 +232,13 @@ for i in range(0,5):
         print(person.name + " heeft  " + f"{person.score:,} punten.")
         print("Gemiddele berekentijd: {}".format(total_time/teller))
         
-print(max(algorithm_scores, key=algorithm_scores.get))
+high_score = max(algorithm_scores.values())
 eindtijd = time.time()
 print("Starttijd: {}, Eindtijd: {}, Duur: {}".format(starttijd, eindtijd, eindtijd-starttijd))
+algorithm_scores.keys()
+for key in algorithm_scores:
+    algorithm_scores[key] = algorithm_scores[key] / high_score
+
+parents = random.choices(list(algorithm_scores.keys()), weights = algorithm_scores.values(), k=100)
+size = int(len(strategies)/(2))
+strategies.iloc[:size,68]
