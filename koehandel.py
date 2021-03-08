@@ -11,6 +11,8 @@ import random
 import time
 import pandas as pd
 import numpy as np
+from multiprocessing import Process
+
 # to do:
     #v portemonnee wordt minder bij elke aankoop 
     #v bij het trekken van de ezel stijgt de geldhoeveelheid
@@ -120,6 +122,10 @@ class ModifiableCycle(object):
         # Deletes the item just returned.
         self.deque.pop()
         
+def evolution(lower):
+   for k in range(lower,lower+50,2):
+      print("{}: Dit werkt blijkbaar: {}".format(lower,k))
+      print(" ")
 
 
 ################### Situaties generen voor het evolutionair algoritme #####################
@@ -152,7 +158,7 @@ algorithm_scores = dict.fromkeys(range(0,200),0)
 for g in range(0,1):
     starttijd = time.time()
     # aantal potjes
-    for i in range(0,10):
+    for i in range(0,1):
         print("Tijd voor ronde {}!".format(i))
         teller = 0
         total_time = 0
@@ -234,32 +240,49 @@ for g in range(0,1):
             print(person.name + " heeft  " + f"{person.score:,} punten.")
             print("Gemiddele berekentijd: {}".format(total_time/teller))
             
-    high_score = max(algorithm_scores.values())
+    sum_scores = sum(algorithm_scores.values())
     eindtijd = time.time()
     print("Starttijd: {}, Eindtijd: {}, Duur: {}".format(starttijd, eindtijd, eindtijd-starttijd))
-    
     ## Genereer gewichten, genormeerd naar de hoogste bahaalde scoren. max gewicht is 0.9 (willekeurig)
     algorithm_scores.keys()
     for key in algorithm_scores:
-        algorithm_scores[key] = algorithm_scores[key] / high_score
+        algorithm_scores[key] = algorithm_scores[key] / sum_scores
     
     new_strategies = pd.DataFrame(dtype='int8')
     start = time.time()  
-    for k in range(0,200):
-        print(k)
-        # Selectiesproces: selecteer 2 ouder-algorithmes, gebruikmakend van de gewichten. Ouder algorithmen met betere scores
-        # hebben een hogere kans geselecteerd te worden
-        sample = strategies.sample(n=2, weights=algorithm_scores.values(), axis = 1)
-        random_number = np.random.randint(0,len(strategies))
-    ## strategies.info()
-        new_strategy = pd.Series(sample.iloc[:random_number,0].append(sample.iloc[random_number:,1]),dtype='int8', name=k)
-        mutations =  new_strategy.sample(frac=0.02).replace(to_replace = [0,10], value = [10,0]).astype('int8')
-        new_strategy.update(mutations)
-        new_strategies = pd.concat([new_strategies,new_strategy], axis =1)
+# =============================================================================
+#     for k in range(0,200,2):
+#         print(k)
+#         # Selectiesproces: selecteer 2 ouder-algorithmes, gebruikmakend van de gewichten. Ouder algorithmen met betere scores
+#         # hebben een hogere kans geselecteerd te worden
+#         sample = strategies.sample(n=2, weights=algorithm_scores, replace=False, axis = 1)
+#         random_number = np.random.randint(0,len(strategies))
+#     ## strategies.info()
+#         new_strategy_1 = pd.Series(sample.iloc[:random_number,0].append(sample.iloc[random_number:,1]),dtype='int8', name=k)
+#         new_strategy_2 = pd.Series(sample.iloc[:random_number,1].append(sample.iloc[random_number:,0]),dtype='int8', name=k+1)
+#         mutations_1 =  new_strategy_1.sample(frac=0.02).replace(to_replace = [0,10], value = [10,0]).astype('int8')
+#         mutations_2 =  new_strategy_2.sample(frac=0.02).replace(to_replace = [0,10], value = [10,0]).astype('int8')
+#         new_strategy_1.update(mutations_1)
+#         new_strategy_2.update(mutations_2)
+#         new_strategies = pd.concat([new_strategies,new_strategy_1,new_strategy_2], axis =1)
+#         
+# =============================================================================
+    if __name__ == '__main__':
+        workers = ['Anne-Sophie','Lodewijk','Roderick-Jan','Marie-Claire']
+        jobs = []
+        job = Process(target=evolution)
+        jobs.append(job)
+        job.start()
+
+    for worker in range(0,200,50):
+        print(worker)
+        job = Process(target=evolution,args=(worker,))
+        jobs.append(job)
+        job.start()
+
+    
     strategies = new_strategies.set_index(index)
-    del mutations, new_strategy, new_strategies
     end = time.time()
     print("Evolutie compleet. Duur: {}".format((end-start)/60))
-    strategies.sample()
 
     
