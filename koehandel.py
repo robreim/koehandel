@@ -138,24 +138,25 @@ del animals_deck, bank_account, cards_in_hand, no_donkeys_drawn, current_bid, co
 
 # creeer een index aan de hand van alle kolommen
 situations = situations.set_index(['Animals', 'BankAccount','CardsInHand','MoneySupply','CurrentBid'])
-
-
+index = situations.index
+del situations 
 # creeer een dataframe met 200 kolommen (elke kolom staat voor 1 lijst met acties (algoritme), met
 # met de index van situations als index)
-strategies = pd.DataFrame(data=np.random.choice([0,10],len(situations)*200).reshape(-1, 200), index = situations.index)
-                          
-# nu kan de situations tabel weg
-del situations
+strategies = pd.DataFrame(data=np.random.choice([0,10],size = len(index)*200).reshape(-1, 200), index = index, dtype = 'int8')
+
+
 ####################### Spel opzetten ##################################
 algorithm_scores = dict.fromkeys(range(0,200),0)
 
 # generations
-for g in range(0,1000):
+for g in range(0,1):
     starttijd = time.time()
+    # aantal potjes
     for i in range(0,10):
         print("Tijd voor ronde {}!".format(i))
         teller = 0
         total_time = 0
+        #aantal algorithmes
         for z in range(0,200):
             print("Algorithme {} van 200".format(z))
             
@@ -237,30 +238,28 @@ for g in range(0,1000):
     eindtijd = time.time()
     print("Starttijd: {}, Eindtijd: {}, Duur: {}".format(starttijd, eindtijd, eindtijd-starttijd))
     
-    ## Genereer gewichten, genormeerd naar de hoogste bahaalde scoren
+    ## Genereer gewichten, genormeerd naar de hoogste bahaalde scoren. max gewicht is 0.9 (willekeurig)
     algorithm_scores.keys()
     for key in algorithm_scores:
         algorithm_scores[key] = algorithm_scores[key] / high_score
     
-    # Selectiesproces: selecteer 100 ouder-algorithmes, gebruikmakend van de gewichten. Ouder algorithmen met betere scores
-    # hebben een hogere kans geselecteerd te worden
-    parents = random.choices(list(algorithm_scores.keys()), weights = algorithm_scores.values(), k=100)
-    size = int(len(strategies)/(2))
-    # Splits op in vader en moeder
-    mother, father = parents[0:50], parents[50:100]
-    # neem de eerste helft van acties (ongeveer 1.5 mio) van de moeder, en plak de laatste 1.5 mio van de vader er aan vast
-    for x in range(0,100):
-        print("Eerste helft kinderen maken")
-        strategies[x] = strategies.iloc[:size,mother[0]].append(strategies.iloc[size:,father[0]])
-    for x in range(100,200):
-        print("Tweede helft kinderen maken")
-        strategies[x] = strategies.iloc[:size,father[0]].append(strategies.iloc[size:,mother[0]])
+    new_strategies = pd.DataFrame(dtype='int8')
+    start = time.time()  
+    for k in range(0,200):
+        print(k)
+        # Selectiesproces: selecteer 2 ouder-algorithmes, gebruikmakend van de gewichten. Ouder algorithmen met betere scores
+        # hebben een hogere kans geselecteerd te worden
+        sample = strategies.sample(n=2, weights=algorithm_scores.values(), axis = 1)
+        random_number = np.random.randint(0,len(strategies))
+    ## strategies.info()
+        new_strategy = pd.Series(sample.iloc[:random_number,0].append(sample.iloc[random_number:,1]),dtype='int8', name=k)
+        mutations =  new_strategy.sample(frac=0.02).replace(to_replace = [0,10], value = [10,0]).astype('int8')
+        new_strategy.update(mutations)
+        new_strategies = pd.concat([new_strategies,new_strategy], axis =1)
+    strategies = new_strategies.set_index(index)
+    del mutations, new_strategy, new_strategies
+    end = time.time()
+    print("Evolutie compleet. Duur: {}".format((end-start)/60))
+    strategies.sample()
+
     
-    # randomly change some zeroes to tens,some tens to zeroes
-    for x in range(0,200):
-        print("Willekeurige mutatie")
-        tens = np.flatnonzero(strategies[x]) # get the nonzero indices
-        zeroes = np.flatnonzero(strategies[x]==0) # get the zero indices
-        strategies[x].iloc[np.random.choice(zeroes,size=int(0.01*len(zeroes)),replace=False)] = 10
-        strategies[x].iloc[np.random.choice(tens,size=int(0.01*len(tens)),replace=False)] = 0
-    time.time()
