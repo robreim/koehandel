@@ -11,7 +11,7 @@ import random
 import time
 import pandas as pd
 import numpy as np
-from multiprocessing import Process
+import multiprocessing as mp
 
 # to do:
     #v portemonnee wordt minder bij elke aankoop 
@@ -123,34 +123,34 @@ class ModifiableCycle(object):
         self.deque.pop()
         
 def evolution(lower):
+   new_strategies = pd.DataFrame(dtype='int8')
    for k in range(lower,lower+50,2):
-      print("{}: Dit werkt blijkbaar: {}".format(lower,k))
-      print(" ")
-
+         print(k)
+         # Selectiesproces: selecteer 2 ouder-algorithmes, gebruikmakend van de gewichten. Ouder algorithmen met betere scores
+         # hebben een hogere kans geselecteerd te worden
+         sample = strategies.sample(n=2, weights=algorithm_scores, replace=False, axis = 1)
+         random_number = np.random.randint(0,len(strategies))
+         new_strategy_1 = pd.Series(sample.iloc[:random_number,0].append(sample.iloc[random_number:,1]),dtype='int8', name=k)
+         new_strategy_2 = pd.Series(sample.iloc[:random_number,1].append(sample.iloc[random_number:,0]),dtype='int8', name=k+1)
+         mutations_1 =  new_strategy_1.sample(frac=0.02).replace(to_replace = [0,10], value = [10,0]).astype('int8')
+         mutations_2 =  new_strategy_2.sample(frac=0.02).replace(to_replace = [0,10], value = [10,0]).astype('int8')
+         new_strategy_1.update(mutations_1)
+         new_strategy_2.update(mutations_2)
+         new_strategies = pd.concat([new_strategies,new_strategy_1,new_strategy_2], axis =1)
+   return new_strategies.astype('int8')
 
 ################### Situaties generen voor het evolutionair algoritme #####################
-animals_deck = pd.DataFrame(list(animals.values()), columns =['Animals'])
-bank_account = pd.DataFrame(list(range(0,1500,10)), columns=['BankAccount'])
-cards_in_hand = pd.DataFrame(list(range(0,4)),columns=['CardsInHand'])
-no_donkeys_drawn= pd.DataFrame(list(range(0,5,1)), columns=['MoneySupply'])
-current_bid = pd.DataFrame(list(range(0,1010,10)), columns= ['CurrentBid'])
+   # maak een list van 1) alle mogelijke dieren, 2) Geld in hand (0-1500) 
+    # 3) hoeveel kaarten van de opgegooide kaart je al in de hand hebt (0-3), 4) aantal opgegooide ezels (0-4), 
+    #en 5) het huidige bod (0-1000)). Maak daaruit een index.
 
-## voeg samen tot een dataframe
-situations = pd.merge(animals_deck,bank_account, how='cross')
-for column in [cards_in_hand,no_donkeys_drawn,current_bid]:
-    situations = pd.merge(situations,column,how='cross')
+a = [list(animals.values()), list(range(0,1500,10)), list(range(0,4)), list(range(0,5,1)),list(range(0,1010,10))]
+index = pd.MultiIndex.from_product(a)
 
-del animals_deck, bank_account, cards_in_hand, no_donkeys_drawn, current_bid, column
-
-# creeer een index aan de hand van alle kolommen
-situations = situations.set_index(['Animals', 'BankAccount','CardsInHand','MoneySupply','CurrentBid'])
-index = situations.index
-del situations 
+del a
 # creeer een dataframe met 200 kolommen (elke kolom staat voor 1 lijst met acties (algoritme), met
 # met de index van situations als index)
 strategies = pd.DataFrame(data=np.random.choice([0,10],size = len(index)*200).reshape(-1, 200), index = index, dtype = 'int8')
-
-
 ####################### Spel opzetten ##################################
 algorithm_scores = dict.fromkeys(range(0,200),0)
 
@@ -222,9 +222,9 @@ for g in range(0,1):
                     ## als speler weigert hoger te bieden, verwijder uit de iterable
                     if next_bid <= current_bid:
                         bidders.remove(next_player),iter_names.delete_prev() 
-                    else: 
+                    else:     
                         pass
-            
+                    
                 ## Er is een winnende bieder! Voer de kasstromen uit, voeg kaart toe aan hand 
                 # en maak de iteratie van de veilingmeester rond
                 print("{}'s bod van {} munten is het winnende bod".format(bidders[0].name,
@@ -248,7 +248,6 @@ for g in range(0,1):
     for key in algorithm_scores:
         algorithm_scores[key] = algorithm_scores[key] / sum_scores
     
-    new_strategies = pd.DataFrame(dtype='int8')
     start = time.time()  
 # =============================================================================
 #     for k in range(0,200,2):
@@ -267,22 +266,33 @@ for g in range(0,1):
 #         new_strategies = pd.concat([new_strategies,new_strategy_1,new_strategy_2], axis =1)
 #         
 # =============================================================================
-    if __name__ == '__main__':
-        workers = ['Anne-Sophie','Lodewijk','Roderick-Jan','Marie-Claire']
-        jobs = []
-        job = Process(target=evolution)
-        jobs.append(job)
-        job.start()
-
-    for worker in range(0,200,50):
-        print(worker)
-        job = Process(target=evolution,args=(worker,))
-        jobs.append(job)
-        job.start()
-
-    
-    strategies = new_strategies.set_index(index)
+# =============================================================================
+#     output = mp.Queue()
+#     jobs = []
+# 
+#     for worker in range(0,200,50):
+#         print(worker)
+#         job = mp.Process(target=evolution,args=(worker,output))
+#         jobs.append(job)
+#         job.start()
+# 
+#     for job in jobs:
+#         job.join()
+#         
+#     results = [output.get() for job in jobs]
+#    
+    pool = mp.Pool(processes= (mp.cpu_count()-1))
+    results= pool.map(evolution,range(0,200,50))
+    pool.close()
+    pool.join()
+    new_algorithms = pd.concat(results, axis = 1).astype('int8')
     end = time.time()
     print("Evolutie compleet. Duur: {}".format((end-start)/60))
-
+# =============================================================================
+# =============================================================================
+#     strategies = new_strategies.set_index(index)
+#     
+#     
+# 
+# =============================================================================
     
