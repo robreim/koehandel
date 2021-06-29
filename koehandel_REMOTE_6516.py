@@ -227,7 +227,7 @@ print(strategies)
 
 ####################### Spel opzetten ##################################
 algorithm_scores = dict.fromkeys(range(0,198),0)
-#hello
+
 # Aantal generaties 
 for g in range(0,2):
     # Aantal potjes

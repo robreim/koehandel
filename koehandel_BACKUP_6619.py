@@ -44,7 +44,6 @@ Doel:
 from collections import deque
 from functools import partial
 import random
-import time
 import pandas as pd
 import numpy as np
 import multiprocessing as mp
@@ -104,6 +103,16 @@ class Player:
          self.strategy = strategies[number]
          self.number = number
          
+<<<<<<< HEAD
+    def bid(self,card_drawn,current_bid,money_supply):
+        # create vector of bools
+        condition = situations[(situations.Animals == card_drawn) & (situations.CurrentBid == current_bid) &
+                     (situations.MoneySupply == money_supply) & (situations.BankAccount == self.budget) & 
+                     (situations.CardsInHand == self.hand.get(card_drawn)) ]
+        self.offer = min(self.budget,current_bid + self.strategy[condition.index.item()])
+
+        print("{} biedt {} munten voor de/het {}".format(self.name,self.offer,card_drawn))
+=======
     def bid(self):
         """ 
         The bid function takes the minimum of the budget of the player, and of the current_bid plus an own bid. It is the bid function where the appropiate action
@@ -115,6 +124,7 @@ class Player:
                          loc[auction_card.value,self.budget,self.hand.get(auction_card.animal),ezelteller
                                                                      ,current_bid])
         print("{} biedt {} munten voor de/het {}".format(self.name,self.offer,auction_card.animal))
+>>>>>>> dev
         return self.offer
     
     def calculateScore(self):
@@ -202,6 +212,57 @@ def evolution(algorithms,procs,scores,lower):
 
 ##########################################################################################################################
 
+<<<<<<< HEAD
+
+# genereer strategieen/actielijst voor evolutionair algorithme
+list_of_strategies = []
+for algorithm in range(0,200):
+    strategy = random.choices([0,50],k=len(situations))
+    list_of_strategies.append(strategy)
+
+del strategy, algorithm
+
+####################### Spel opzetten ##################################
+list_best_strategies = []
+
+for z in range(0,200,4):
+    print("Algorithme {} tot {}".format(z,z+3))      
+    ## Spelers opzetten
+    mohsine = Player("Mohsine", portemonnee,list_of_strategies[z])
+    charlotte = Player("Charlotte", portemonnee,list_of_strategies[z+1])
+    joost = Player("Joost", portemonnee,list_of_strategies[z+2])
+    annemarie = Player("Annemarie", portemonnee,list_of_strategies[z+3])
+    names = [mohsine, charlotte, joost, annemarie]
+    # Waardes initialiseren
+    for i in range(1,11):     
+        for player in names:
+            player.budget = portemonnee
+            player.hand = {"Haan"  :0, 
+                "Gans"  :0, 
+                "Kat"   :0,
+                "Hond"  :0,
+                "Schaap":0,
+                "Bok"   :0,
+                "Ezel"  :0,
+                "Varken":0,
+                "Koe"   :0,
+                "Paard" :0
+                }
+        ## Stapel schudden
+        deck = Deck()
+        deck.shuffle()
+        deck.show()
+        
+        
+        ################### Spel starten, willekeurige beginner ######################################
+    
+ 
+        # de eerste veilingmeester wordt willekeurig gekozen
+        ##veilingmeester = names[random.choice([0,1,2,3])]
+        random.shuffle(names)
+        iter_veilingmeester = ModifiableCycle(names)
+        iter_first_bidder = ModifiableCycle(names)
+=======
 ##################################Situatie-index opzetten#################################################################
 
 animals = {"Haan"  :10, 
@@ -227,7 +288,8 @@ print(strategies)
 
 ####################### Spel opzetten ##################################
 algorithm_scores = dict.fromkeys(range(0,198),0)
-#hello
+>>>>>>> dev
+
 # Aantal generaties 
 for g in range(0,2):
     # Aantal potjes
@@ -237,9 +299,15 @@ for g in range(0,2):
         for z in range(0,198):
             print("Algorithme {} van 198".format(z))
             
+<<<<<<< HEAD
+            # Het eerste bod wordt gedaan door de eerste persoon na de veilingmeester. Het volgende bod moet minimaal 10
+            # munten hoger zijn. De veilingmeester mag niet bieden.
+            situation ={'card_drawn':auction_card.animal,'current_bid':current_bid,'money_supply':ezelteller}
+=======
             # Zorg voor een willekeurige opponent (niet tegen zichzelf)
             random_opponents = [x for x in range(0, 198) if x != z]
             random_sample = random.sample(random_opponents,3)
+>>>>>>> dev
             
             ## Spelers opzetten. Startkapitaal is 90 muntjes
             mohsine = Player("Mohsine", number = z)
@@ -272,6 +340,49 @@ for g in range(0,2):
                 print(" ")
                 current_bid = 0
             
+<<<<<<< HEAD
+            ## eerste bod
+            next_player = next(iter_names)
+            next_bid = next_player.bid(**situation)
+            ## Tijd voor de biedingsronde:
+            while len(bidder_names)>1:
+                current_bid = next_bid
+                previous_player = next_player
+                next_player = next(iter_names)
+                #update situatie en bied opnieuw
+                situation ={'card_drawn':auction_card.animal,'current_bid':current_bid,'money_supply':ezelteller}
+                next_bid = next_player.bid(**situation)
+                ## als speler weigert hoger te bieden, verwijder uit de iterable
+                if next_bid <= current_bid:
+                    bidder_names.remove(next_player),iter_names.delete_prev() 
+                else: 
+                    pass
+        
+            ## Er is een winnende bieder! Voer de kasstromen uit, voeg kaart toe aan hand 
+            # en maak de iteratie van de veilingmeester rond
+            print("{}'s bod van {} munten is het winnende bod".format(bidder_names[0].name,
+                                                                      bidder_names[0].offer))
+            veilingmeester.budget += next_bid
+            previous_player.budget -= next_bid
+            previous_player.addtoHand(auction_card)
+            veilingmeester = next(iter_veilingmeester)
+            print(" ")
+            
+        ### scores evalueren
+        for person in names:
+            person.calculateScore()
+    
+    ## Sla de beste algorithmes / actielijst op
+    highscore = {mohsine:mohsine.total_score
+                 ,charlotte:charlotte.total_score
+                 ,joost:joost.total_score
+                 ,annemarie:annemarie.total_score}
+    
+    list_best_strategies.append(max(highscore,key=highscore.get).strategy)
+    for person in names:
+        print(person.name + " " + f"{sum(person.total_score)/len(person.total_score):,} punten gemiddeld")
+ 
+=======
                 # Het eerste bod wordt gedaan door de eerste persoon na de veilingmeester. Het volgende bod moet minimaal 10
                 # munten hoger zijn. De veilingmeester mag niet bieden.Creeer iterable puur voor de biedingsronde        
                 iter_names = ModifiableCycle(bidders)
@@ -332,3 +443,4 @@ for g in range(0,2):
 # to do:
     # veilingmeester kan besluiten de kaart voor het hoogste bod te nemen
     # ook twee ronde (ruilronde) inbouwen
+>>>>>>> dev
