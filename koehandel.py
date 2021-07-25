@@ -41,7 +41,6 @@ Doel:
 
 """
 
-from collections import deque
 from functools import partial
 import random
 import time
@@ -49,6 +48,7 @@ import pandas as pd
 import numpy as np
 import multiprocessing as mp
 from functions_koehandel import *
+from collections import OrderedDict
 
 ##########################################################################################################################
 
@@ -66,50 +66,50 @@ animals = {"Haan"  :10,
             "Paard" :1000
             }
 ## Creer Index met alle mogelijke situaties (waardes dieren, WTP,)
-a = [list(animals.values()),list(range(0,4)), list(range(0,5))]
-index = pd.MultiIndex.from_product(a)
-
+a = [list(animals.values()), list(range(0,4)),list(range(0,5))]
+index = pd.MultiIndex.from_product(a,names=["Dier","Hand","Ezels"])
+index
 del a
 # creeer een dataframe met 198 kolommen (elke kolom staat voor 1 lijst met acties (algoritme), met
 # met de index van situations als index)
-strategies = pd.DataFrame(data=np.random.([0,10],size = len(index)*198).reshape(-1, 198), index = index, dtype = 'int8')
 
-wtp_base_strategies = pd.DataFrame(data=random.sample(range(0, 100,10),10))
 
-for x in range(0,200):
-    temp_list = random.sample(range(0, 100,10),10)
-    
-    
-df = pd.concat([pd.DataFrame(random.sample(range(0, 100,10),10), columns=[i]) for i in range(200)], reset_index=True)
-
-          ignore_index=True)         
-print(strategies)
+strategies = pd.DataFrame(data=np.random.randint(1,50,size = len(index)*200).reshape(-1, 200), index = index, dtype = 'int16').mul(10)
+strategies = strategies.assign(Gemiddelde=strategies.mean(axis=1))
+meanHaan = strategies.iloc[0,200]
+meanBok = strategies.iloc[100,200]
+meanPaard = strategies.iloc[180,200]
+meanVarkenNulhandTweeEzels = strategies.iloc[142,200]
+meanPoesDrieHandNulEzels = strategies.iloc[55,200]
+strategies = strategies.drop(columns=['Gemiddelde'])
 
 ####################### Spel opzetten ##################################
-algorithm_scores = dict.fromkeys(range(0,198),0)
+
 #hello
+start = time.time()  
 # Aantal generaties 
-for g in range(0,2):
+for g in range(0,200):
+    algorithm_scores = dict.fromkeys(range(0,200),0)
     # Aantal potjes
-    for i in range(0,5):
+    for i in range(0,3):
         print("Tijd voor ronde {}!".format(i))
+        list_of_strategies = list(range(0,200))
         # Loop over de algoritmes
-        for z in range(0,198):
-            print("Algorithme {} van 198".format(z))
-            
+        while len(list_of_strategies) >= 4:
+            x = random.choice(list_of_strategies)
+            list_of_strategies.remove(x)
             # Zorg voor een willekeurige opponent (niet tegen zichzelf)
-            random_opponents = [x for x in range(0, 198) if x != z]
-            random_sample = random.sample(random_opponents,3)
-            
+            random_sample = random.sample(list_of_strategies,3)
+            list_of_strategies = [e for e in list_of_strategies if e not in random_sample]
             ## Spelers opzetten. Startkapitaal is 90 muntjes
-            mohsine = Player("Mohsine", number = z)
-            charlotte  = Player("Charlotte", number = random_sample[0])
-            joost = Player("Joost", number = random_sample[1])
-            annemarie = Player("Annemarie",  number =random_sample[2])
+            mohsine = Player("Mohsine", number = x, strategy = strategies[0])
+            charlotte  = Player("Charlotte", number = random_sample[0], strategy = strategies[random_sample[0]])
+            joost = Player("Joost", number = random_sample[1], strategy = strategies[random_sample[1]])
+            annemarie = Player("Annemarie", number = random_sample[2],  strategy  = strategies[random_sample[2]])
             names = [mohsine, charlotte, joost, annemarie]                           
          
             ## Stapel creeren (schud automatisch)
-            deck = Deck()
+            deck = Deck(animals)
             # de eerste veilingmeester wordt willekeurig gekozen
             random.shuffle(names)
             iter_veilingmeester = ModifiableCycle(names)
@@ -132,41 +132,45 @@ for g in range(0,2):
                 print(" ")
                 current_bid = 0
             
+            
                 # Het eerste bod wordt gedaan door de eerste persoon na de veilingmeester. Het volgende bod moet minimaal 10
                 # munten hoger zijn. De veilingmeester mag niet bieden.Creeer iterable puur voor de biedingsronde        
                 iter_names = ModifiableCycle(bidders)
-                ## eerste bod
-                next_player = next(iter_names)
-                next_bid = next_player.bid()
-                ## Tijd voor de biedingsronde. Als er nog maar een speler overblijft, eindigt de biedingsronde:
-                while len(bidders)>1:
-                    # Update status: het zojuist afgegeven bod is nu het huidige bod, de speler die bood is de vorige speler.
-                    current_bid = next_bid
-                    previous_player = next_player
-                    next_player = next(iter_names)
-                    #De volgende speler biedt
-                    next_bid = next_player.bid()
-                    ## als speler weigert hoger te bieden, verwijder uit de iterable
-                    if next_bid <= current_bid:
-                        bidders.remove(next_player),iter_names.delete_prev() 
-                    else:     
-                        pass
-                    
+                print(bidders[0].name)
+                bids = {0:bidders[0].bid(auction_card, aantal_ezels = ezelteller),
+                        1:bidders[1].bid(auction_card,aantal_ezels =ezelteller),
+                        2:bidders[2].bid(auction_card,aantal_ezels = ezelteller)}
+                
+                # Als er meerdere bieder met dezelfde WTP zijn: dan wint de eerste speler die aan de beurt was om te bieden de kaart
+                # (immers hebben de anderen niet overboden), transactieprijs is dan gelijk aan de WTP. Mocht er maar 1 hoogste bieder zijn,
+                # dan wordt de transactieprijs de WTP van de een na hoogste bieder
+                highest_bid = max(bids.values())
+                highest_bidders = [k for k, v in bids.items() if v == highest_bid]
+                highest_bidder = highest_bidders[0]
+                if len(highest_bidders) > 1:
+                    transaction_price = highest_bid
+                else:
+                    del bids[highest_bidder]
+                    transaction_price = max(bids.values()) + 10
                 ## Er is een winnende bieder! Voer de kasstromen uit, voeg kaart toe aan hand 
    
-                print("{}'s bod van {} munten is het winnende bod".format(bidders[0].name,
-                                                                          bidders[0].offer))
-                veilingmeester.budget += next_bid
-                previous_player.budget -= next_bid
-                previous_player.addtoHand(auction_card)            
+                print("{}'s bod van {} munten is het winnende bod".format(bidders[highest_bidder].name,
+                                                                          transaction_price))
+                veilingmeester.budget += transaction_price
+                bidders[highest_bidder].budget -= transaction_price
+                bidders[highest_bidder].addtoHand(auction_card)            
                 print(" ")
                 
+                # volgende veilingmeester
+                veilingmeester = next(iter_veilingmeester)
             ## Einde v/h potje. Bereken de scores
             for person in names:
-                algorithm_scores[person.number] += person.calculateScore() 
+                algorithm_scores[person.number] += person.calculateScore(animals) 
                 print(person.name + " heeft  " + f"{person.score:,} punten.")
             
     ## Nu hebben 198 algoritmes x aantal potjes gespeeld. Tijd om de balans op te maken! Norm de scores. 
+                # to do: gemiddelde score! sommige algo's hebben wellicht meer potjes gespeeld
+              
     sum_scores = sum(algorithm_scores.values())
     algorithm_scores.keys()
     for key in algorithm_scores:
@@ -175,20 +179,25 @@ for g in range(0,2):
     ########################################### Evolutie Mechanisme ####################################################
     ## Start het evolutie mechanisme (traag). Gebruik multiprocessing om het te versnellen (ong. 2x zo snel). ############
     #######################################################################################################################
-    start = time.time()  
+    strategies = evolution(algorithms = strategies,scores=algorithm_scores, index = index, totalrange = 200)
+   # start = time.time()  
     ## 1 kern minder gebruiken dan de pc heeft. Nu  fix 3 processoren
     #workers = mp.cpu_count() -1
-    workers = 3
-    pool = mp.Pool(processes = workers)
+   # workers = 3
+   # pool = mp.Pool(processes = workers)
     ## Verdeel de werklast evenredig over de processoren 
-    results= pool.map(partial(evolution,strategies,workers,algorithm_scores), range(0,198,66))
-    pool.close()
-    pool.join()
-    strategies = pd.concat(results, axis = 1).astype('int8')
-    end = time.time()
-    print("Evolutie compleet. Duur: {} minuten".format((end-start)/60))
-    print(pool)
+   # results= pool.map(partial(evolution,strategies,workers,algorithm_scores), range(0,198,66))
+    #pool.close()
+    #pool.join()
+    #strategies = pd.concat(results, axis = 1).astype('int16')
+    #pool.terminate()
+    #print("Einde generatie {}".format(g))
 
-# to do:
+
+    #   to do:
     # veilingmeester kan besluiten de kaart voor het hoogste bod te nemen
     # ook twee ronde (ruilronde) inbouwen
+end = time.time()
+
+print("Het duurde {} minuten".format((end-start)/60))
+strategies = strategies.assign(mean=strategies.mean(axis=1))
