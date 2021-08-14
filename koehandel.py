@@ -49,9 +49,12 @@ import numpy as np
 import multiprocessing as mp
 from functions_koehandel import *
 from collections import OrderedDict
-
+import matplotlib.pyplot as plt
+import csv
 ##########################################################################################################################
-
+aantal_rondes = 5
+aantal_generaties = 100
+mutatiegraad = 0.04
 ##################################Situatie-index opzetten#################################################################
 
 animals = {"Haan"  :10, 
@@ -65,139 +68,78 @@ animals = {"Haan"  :10,
             "Koe"   :800,
             "Paard" :1000
             }
+
+
 ## Creer Index met alle mogelijke situaties (waardes dieren, WTP,)
 a = [list(animals.values()), list(range(0,4)),list(range(0,5))]
 index = pd.MultiIndex.from_product(a,names=["Dier","Hand","Ezels"])
 index
 del a
-# creeer een dataframe met 198 kolommen (elke kolom staat voor 1 lijst met acties (algoritme), met
+# creeer een willekeurig dataframe met 198 kolommen (elke kolom staat voor 1 lijst met acties (algoritme), met
 # met de index van situations als index)
 
-
 strategies = pd.DataFrame(data=np.random.randint(1,50,size = len(index)*200).reshape(-1, 200), index = index, dtype = 'int16').mul(10)
-strategies = strategies.assign(Gemiddelde=strategies.mean(axis=1))
-meanHaan = strategies.iloc[0,200]
-meanBok = strategies.iloc[100,200]
-meanPaard = strategies.iloc[180,200]
-meanVarkenNulhandTweeEzels = strategies.iloc[142,200]
-meanPoesDrieHandNulEzels = strategies.iloc[55,200]
-strategies = strategies.drop(columns=['Gemiddelde'])
+
+# Behoud originele strategie om prestatie te kunnen meten
+strategies_original = strategies
 
 ####################### Spel opzetten ##################################
 
-#hello
-start = time.time()  
+start = time.time()
+high_score = [0 for x in range(0,aantal_generaties)]
+number_of_algorithms = strategies.shape[1] 
 # Aantal generaties 
-for g in range(0,200):
-    algorithm_scores = dict.fromkeys(range(0,200),0)
+for g in range(0,aantal_generaties):
+    print("Generatie: {}".format(g+1))
+    algorithm_scores = [0 for x in range(0,200)]
     # Aantal potjes
-    for i in range(0,3):
-        print("Tijd voor ronde {}!".format(i))
-        list_of_strategies = list(range(0,200))
-        # Loop over de algoritmes
-        while len(list_of_strategies) >= 4:
-            x = random.choice(list_of_strategies)
-            list_of_strategies.remove(x)
-            # Zorg voor een willekeurige opponent (niet tegen zichzelf)
-            random_sample = random.sample(list_of_strategies,3)
-            list_of_strategies = [e for e in list_of_strategies if e not in random_sample]
-            ## Spelers opzetten. Startkapitaal is 90 muntjes
-            mohsine = Player("Mohsine", number = x, strategy = strategies[0])
-            charlotte  = Player("Charlotte", number = random_sample[0], strategy = strategies[random_sample[0]])
-            joost = Player("Joost", number = random_sample[1], strategy = strategies[random_sample[1]])
-            annemarie = Player("Annemarie", number = random_sample[2],  strategy  = strategies[random_sample[2]])
-            names = [mohsine, charlotte, joost, annemarie]                           
-         
-            ## Stapel creeren (schud automatisch)
-            deck = Deck(animals)
-            # de eerste veilingmeester wordt willekeurig gekozen
-            random.shuffle(names)
-            iter_veilingmeester = ModifiableCycle(names)
-            ezelteller = 0
-            ################### Spel starten, willekeurige beginner ######################################
+    for i in range(0,aantal_rondes):
+        print("Tijd voor ronde {}!".format(i+1))
+        list_of_strategies = list(range(0,number_of_algorithms))
+        # Loop over de individuen
+        for t in range(0,200):
+           algorithm_scores[t] += koehandel_simulation(t,strategies, animals, 
+                                                       list_of_strategies = list_of_strategies, 
+                                                       original_strategies = strategies_original)
+           list_of_strategies.remove(t)
+
+     ########################################### E####################################################
+    ## Nog 10 potjes om te kijken hoe goed het beste algoritme van dit potje is    ############
+    #################################################################################################### nog 2 extra potjes om te kijken hoe goed het winnende algoritme is vs originele strategien
+    performance = 0
     
-            for x in range(40,0,-1):
-                # Eerst wordt een nieuwe/volgende veilingmeester en 1e/2e/3e bieder aangewezen
-                veilingmeester = next(iter_veilingmeester)
-                bidders = [next(iter_veilingmeester) for x in range(0,3)]
-                print("{} is de nieuwe veilingmeester, {} is aan de beurt om te bieden".format(veilingmeester.name,bidders[0].name))
-            ## Trek de bovenste kaart
-                auction_card = deck.drawCard()
-            # Check of ezel of niet. Zo ja, voeg geld toe aan de budgetten van de spelers
-                if auction_card.animal == 'Ezel':
-                    for person in names:
-                        person.budget += [50,100,200,500][ezelteller]
-                    ezelteller += 1
-                auction_card.show()
-                print(" ")
-                current_bid = 0
-            
-            
-                # Het eerste bod wordt gedaan door de eerste persoon na de veilingmeester. Het volgende bod moet minimaal 10
-                # munten hoger zijn. De veilingmeester mag niet bieden.Creeer iterable puur voor de biedingsronde        
-                iter_names = ModifiableCycle(bidders)
-                print(bidders[0].name)
-                bids = {0:bidders[0].bid(auction_card, aantal_ezels = ezelteller),
-                        1:bidders[1].bid(auction_card,aantal_ezels =ezelteller),
-                        2:bidders[2].bid(auction_card,aantal_ezels = ezelteller)}
+    for r in range(0,10):
+        performance =+ koehandel_simulation(algorithm_scores.index(max(algorithm_scores)),strategies,  animals,
+                                                    original_strategies =  strategies_original, check_performance = True,
+                                                    list_of_strategies = list(range(0,200)))
                 
-                # Als er meerdere bieder met dezelfde WTP zijn: dan wint de eerste speler die aan de beurt was om te bieden de kaart
-                # (immers hebben de anderen niet overboden), transactieprijs is dan gelijk aan de WTP. Mocht er maar 1 hoogste bieder zijn,
-                # dan wordt de transactieprijs de WTP van de een na hoogste bieder
-                highest_bid = max(bids.values())
-                highest_bidders = [k for k, v in bids.items() if v == highest_bid]
-                highest_bidder = highest_bidders[0]
-                if len(highest_bidders) > 1:
-                    transaction_price = highest_bid
-                else:
-                    del bids[highest_bidder]
-                    transaction_price = max(bids.values()) + 10
-                ## Er is een winnende bieder! Voer de kasstromen uit, voeg kaart toe aan hand 
-   
-                print("{}'s bod van {} munten is het winnende bod".format(bidders[highest_bidder].name,
-                                                                          transaction_price))
-                veilingmeester.budget += transaction_price
-                bidders[highest_bidder].budget -= transaction_price
-                bidders[highest_bidder].addtoHand(auction_card)            
-                print(" ")
-                
-                # volgende veilingmeester
-                veilingmeester = next(iter_veilingmeester)
-            ## Einde v/h potje. Bereken de scores
-            for person in names:
-                algorithm_scores[person.number] += person.calculateScore(animals) 
-                print(person.name + " heeft  " + f"{person.score:,} punten.")
-            
-    ## Nu hebben 198 algoritmes x aantal potjes gespeeld. Tijd om de balans op te maken! Norm de scores. 
-                # to do: gemiddelde score! sommige algo's hebben wellicht meer potjes gespeeld
-              
-    sum_scores = sum(algorithm_scores.values())
-    algorithm_scores.keys()
-    for key in algorithm_scores:
-        algorithm_scores[key] = algorithm_scores[key] / sum_scores
-        
+    high_score[g] = performance / 10
     ########################################### Evolutie Mechanisme ####################################################
-    ## Start het evolutie mechanisme (traag). Gebruik multiprocessing om het te versnellen (ong. 2x zo snel). ############
+    ## Start het evolutie mechanisme                                                                             ############
     #######################################################################################################################
-    strategies = evolution(algorithms = strategies,scores=algorithm_scores, index = index, totalrange = 200)
-   # start = time.time()  
-    ## 1 kern minder gebruiken dan de pc heeft. Nu  fix 3 processoren
-    #workers = mp.cpu_count() -1
-   # workers = 3
-   # pool = mp.Pool(processes = workers)
-    ## Verdeel de werklast evenredig over de processoren 
-   # results= pool.map(partial(evolution,strategies,workers,algorithm_scores), range(0,198,66))
-    #pool.close()
-    #pool.join()
-    #strategies = pd.concat(results, axis = 1).astype('int16')
-    #pool.terminate()
-    #print("Einde generatie {}".format(g))
+    strategies = evolution(algorithms = strategies,scores=algorithm_scores, index = index, totalrange = 100, mutation_rate = mutatiegraad)
+ 
 
 
-    #   to do:
-    # veilingmeester kan besluiten de kaart voor het hoogste bod te nemen
-    # ook twee ronde (ruilronde) inbouwen
 end = time.time()
 
 print("Het duurde {} minuten".format((end-start)/60))
-strategies = strategies.assign(mean=strategies.mean(axis=1))
+
+# Print resultaten 
+df = pd.DataFrame(high_score)
+df['rolling_average'] =  df.rolling(window=10).mean()
+df['rolling_average'].plot.line()
+plt.xlabel('Aantal generaties')
+plt.ylabel('Aantal punten')
+plt.show()
+
+
+
+# export resultaten
+with open('/home/reimert/Documents/koehandel/scores_new', 'w') as f:
+    # create the csv writer
+  writer = csv.writer(f)
+  for row in high_score:
+      writer.writerow([row])
+
+strategies.to_excel('/home/reimert/Documents/koehandel/strategies.xlsx')
